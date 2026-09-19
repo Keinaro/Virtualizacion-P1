@@ -30,7 +30,11 @@ elquetzal/
 ├── db/                 Área 4 — schema, seeds, init
 ├── docker-compose.yml  Área 3 — orquestación
 ├── .env.example        Área 3 — plantilla (el .env real NO se versiona)
-└── docs/               arquitectura, modelo de datos, mapa de propiedad, costos
+├── host/               Área 1 — scripts de Windows para crear/gestionar la VM
+├── guest/              Área 1 — scripts que corren dentro de Ubuntu Server
+├── config/             Área 1 — sizing y variables de la VM
+└── docs/               arquitectura, modelo de datos, mapa de propiedad, costos,
+                        más setup de VM/Docker/red (Área 1)
 ```
 
 ## Levantar el stack
@@ -56,6 +60,20 @@ La app queda en `http://<ip-de-la-vm>:8080` (puerto configurable con
 Ver [`db/README.md`](db/README.md). Los carnés del equipo se siembran en
 `clientes_db` — es evidencia obligatoria del proyecto.
 
+## Infraestructura (Área 1)
+
+La VM Ubuntu Server con Docker ya está provisionada. Documentación y scripts:
+
+- [`docs/00-sizing.md`](docs/00-sizing.md) — justificación de CPU/RAM/disco.
+- [`docs/01-vm-setup.md`](docs/01-vm-setup.md) — instalación de VirtualBox y la VM paso a paso.
+- [`docs/02-docker-install.md`](docs/02-docker-install.md) — instalación de Docker Engine + Compose por CLI.
+- [`docs/03-red-host-vm.md`](docs/03-red-host-vm.md) — red host↔VM (NAT+reenvío vs Bridge).
+- [`docs/04-evidencias.md`](docs/04-evidencias.md) — checklist de evidencias personalizadas.
+- [`docs/05-checklist-entrega.md`](docs/05-checklist-entrega.md) — checklist contra la rúbrica.
+- `host/` — scripts de PowerShell para crear y gestionar la VM desde Windows.
+- `guest/` — scripts de bash para correr dentro de la VM (post-instalación, Docker, verificación de evidencias).
+- `config/vm.conf` — sizing, nombre de grupo, carné y puertos de la VM.
+
 ## Publicar imágenes en Docker Hub
 
 ```bash
@@ -80,7 +98,7 @@ semánticas (`1.0`), no solo `latest`, para poder rastrear qué corre en la demo
 
 | Área | Tema | Responsable |
 |---|---|---|
-| 1 | Infraestructura (VM, Linux, Docker Engine, red) | _por asignar_ |
+| 1 | Infraestructura (VM, Linux, Docker Engine, red) | Daniel Paz |
 | 2 | Gateway y redes Docker | _por asignar_ |
 | 3 | Orquestación y publicación | _por asignar_ |
 | 4 | Datos (Postgres, esquemas, seeds) | _por asignar_ |
