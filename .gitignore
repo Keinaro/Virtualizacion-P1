@@ -1,0 +1,32 @@
+# Entorno (nunca subir credenciales reales)
+.env
+.env.local
+*.env
+!.env.example
+
+# Dependencias
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Datos persistentes de contenedores
+db/data/
+volumes/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
