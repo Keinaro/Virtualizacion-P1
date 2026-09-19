@@ -171,7 +171,9 @@ services:
       reportes:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      # 127.0.0.1 explicito: nginx hace 'listen 80' (solo IPv4) y dentro del
+      # contenedor 'localhost' resuelve primero a ::1 -> connection refused.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
       interval: 10s
       timeout: 5s
       retries: 5
