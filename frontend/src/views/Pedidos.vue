@@ -21,6 +21,19 @@ const enviando = ref(false)
 const mensaje = ref('')
 const errorCreacion = ref('')
 
+function formatoQuetzales (valor) {
+  return Number(valor || 0).toLocaleString('es-GT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
+function formatoFecha (fecha) {
+  if (!fecha) return ''
+
+  return new Date(fecha).toLocaleString('es-GT')
+}
+
 // ------------------------------------------------------------
 // Cargar historial de pedidos
 // ------------------------------------------------------------
@@ -258,8 +271,8 @@ onMounted(cargar)
             <td>{{ p.id }}</td>
             <td>{{ p.carne }}</td>
             <td>{{ p.estado }}</td>
-            <td>{{ p.total }}</td>
-            <td>{{ p.creado_en }}</td>
+            <td>Q {{ formatoQuetzales(p.total) }}</td>
+            <td>{{ formatoFecha(p.creado_en) }}</td>
           </tr>
 
           <tr v-if="pedidos.length === 0">

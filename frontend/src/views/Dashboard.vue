@@ -8,6 +8,13 @@ const resumen = ref(null)
 const cargando = ref(false)
 const error = ref('')
 
+function formatoQuetzales (valor) {
+  return Number(valor || 0).toLocaleString('es-GT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
 async function cargar () {
   cargando.value = true
   error.value = ''
@@ -36,7 +43,7 @@ onMounted(cargar)
     </article>
     <article>
       <h3>Valor del inventario</h3>
-      <p>Q {{ resumen.valor_inventario }}</p>
+      <p>Q {{ formatoQuetzales(resumen.valor_inventario) }}</p>
     </article>
     <article>
       <h3>Pedidos de hoy</h3>
