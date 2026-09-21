@@ -1,0 +1,37 @@
+# ============================================================
+# Contexto de build de la raiz — Area 3 (Orquestacion)
+# Aplica al servicio 'gateway', cuyo context es el repo completo.
+# Los .dockerignore de subcarpetas NO aplican a este build.
+# ============================================================
+
+# Control de versiones y documentacion
+.git/
+.gitignore
+docs/
+*.md
+
+# Secretos (nunca deben entrar a una imagen)
+.env
+.env.local
+*.env
+!.env.example
+
+# Dependencias y artefactos ya construidos
+node_modules/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Backend: el gateway solo necesita frontend/ y gateway/
+servicios/
+db/
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
