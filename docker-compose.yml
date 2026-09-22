@@ -1,7 +1,7 @@
 # ============================================================
 # Proyecto 1 — El Quetzal | Área 3 (Orquestación)
 # Contrato de nombres de servicios y puertos internos.
-# Solo el gateway publica puerto hacia el host.
+# Solo el gateway publica puerto hacia el host (GATEWAY_PORT: 80 en la VM).
 # ============================================================
 
 services:
@@ -36,10 +36,14 @@ services:
     - ./db/schemas:/opt/elquetzal/schemas:ro
     - ./db/seeds:/opt/elquetzal/seeds:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER}"]
+      # -h 127.0.0.1 fuerza TCP: durante los scripts de db/init/ Postgres corre
+      # un servidor temporal solo por socket, y sin -h se reportaria 'healthy'
+      # antes de terminar de crear las bases y los microservicios arrancarian antes.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_SUPERUSER}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - interna
     restart: unless-stopped
@@ -134,6 +138,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Pedidos llama a inventario (reserva de stock) y a clientes (valida carné)
+      inventario:
+        condition: service_healthy
+      clientes:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health', timeout=3).status == 200 else 1)"]
       interval: 10s
@@ -159,6 +168,11 @@ services:
       PEDIDOS_URL: http://pedidos:5000
     depends_on:
       db:
+        condition: service_healthy
+      # Reportes agrega datos de inventario y pedidos
+      inventario:
+        condition: service_healthy
+      pedidos:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health', timeout=3).status == 200 else 1)"]
