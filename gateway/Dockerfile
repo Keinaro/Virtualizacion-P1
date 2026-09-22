@@ -1,5 +1,4 @@
 # ============================================================
-# Área 2 + 6 — Gateway nginx con el build de producción de Vue
 # Contexto de build: raíz del repo (ver docker-compose.yml)
 # ============================================================
 

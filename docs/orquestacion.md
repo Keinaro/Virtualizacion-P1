@@ -69,6 +69,7 @@ Cero secretos quemados en el código.
 cp .env.example .env    # y rellenar con las claves reales
 ```
 
+<<<<<<< HEAD
 Las credenciales llegan a cada microservicio mediante `DB_HOST`, `DB_PORT`,
 `DB_USER`, `DB_PASSWORD` y `DB_NAME`, configuradas en `docker-compose.yml`.
 
