@@ -69,8 +69,9 @@ Cero secretos quemados en el código.
 cp .env.example .env    # y rellenar con las claves reales
 ```
 
-Las credenciales de cada base llegan a su microservicio como `DATABASE_URL`,
-compuesta en el `docker-compose.yml` a partir de esas variables.
+<<<<<<< HEAD
+Las credenciales llegan a cada microservicio mediante `DB_HOST`, `DB_PORT`,
+`DB_USER`, `DB_PASSWORD` y `DB_NAME`, configuradas en `docker-compose.yml`.
 
 ---
 
@@ -200,4 +201,4 @@ del lock, dando builds reproducibles.
 
 El gateway usa el repo completo como contexto de build, y los `.dockerignore` de
 las subcarpetas **no** aplican ahí. Sin uno en la raíz se enviaban `.git/`,
-`servicios/` y `docs/` al daemon en cada build.
+`backend/` y `docs/` al daemon en cada build.

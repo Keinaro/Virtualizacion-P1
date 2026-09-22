@@ -20,7 +20,7 @@ Virtualización — Ingeniería en Informática y Sistemas, Universidad Rafael L
 ```
 elquetzal/
 ├── gateway/            Área 2 — nginx.conf, Dockerfile
-├── servicios/          Área 5 — microservicios Flask
+├── backend/            Área 5 — microservicios Flask
 │   ├── catalogo/
 │   ├── inventario/
 │   ├── clientes/

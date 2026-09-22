@@ -46,12 +46,16 @@ services:
 
   # ---------- Área 5: Microservicios Flask ----------
   catalogo:
-    build: ./servicios/catalogo
+    build: ./backend/catalogo
     image: ${DOCKERHUB_NAMESPACE}/catalogo:1.0
     container_name: elquetzal-catalogo
     environment:
-      DATABASE_URL: postgresql://${CATALOGO_DB_USER}:${CATALOGO_DB_PASSWORD}@db:5432/${CATALOGO_DB}
-      FLASK_ENV: ${FLASK_ENV}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${CATALOGO_DB_USER}
+      DB_PASSWORD: ${CATALOGO_DB_PASSWORD}
+      DB_NAME: ${CATALOGO_DB}
+      PORT: 5000
     depends_on:
       db:
         condition: service_healthy
@@ -67,12 +71,16 @@ services:
     restart: unless-stopped
 
   inventario:
-    build: ./servicios/inventario
+    build: ./backend/inventario
     image: ${DOCKERHUB_NAMESPACE}/inventario:1.0
     container_name: elquetzal-inventario
     environment:
-      DATABASE_URL: postgresql://${INVENTARIO_DB_USER}:${INVENTARIO_DB_PASSWORD}@db:5432/${INVENTARIO_DB}
-      FLASK_ENV: ${FLASK_ENV}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${INVENTARIO_DB_USER}
+      DB_PASSWORD: ${INVENTARIO_DB_PASSWORD}
+      DB_NAME: ${INVENTARIO_DB}
+      PORT: 5000
     depends_on:
       db:
         condition: service_healthy
@@ -87,12 +95,16 @@ services:
     restart: unless-stopped
 
   clientes:
-    build: ./servicios/clientes
+    build: ./backend/clientes
     image: ${DOCKERHUB_NAMESPACE}/clientes:1.0
     container_name: elquetzal-clientes
     environment:
-      DATABASE_URL: postgresql://${CLIENTES_DB_USER}:${CLIENTES_DB_PASSWORD}@db:5432/${CLIENTES_DB}
-      FLASK_ENV: ${FLASK_ENV}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${CLIENTES_DB_USER}
+      DB_PASSWORD: ${CLIENTES_DB_PASSWORD}
+      DB_NAME: ${CLIENTES_DB}
+      PORT: 5000
     depends_on:
       db:
         condition: service_healthy
@@ -107,14 +119,18 @@ services:
     restart: unless-stopped
 
   pedidos:
-    build: ./servicios/pedidos
+    build: ./backend/pedidos
     image: ${DOCKERHUB_NAMESPACE}/pedidos:1.0
     container_name: elquetzal-pedidos
     environment:
-      DATABASE_URL: postgresql://${PEDIDOS_DB_USER}:${PEDIDOS_DB_PASSWORD}@db:5432/${PEDIDOS_DB}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${PEDIDOS_DB_USER}
+      DB_PASSWORD: ${PEDIDOS_DB_PASSWORD}
+      DB_NAME: ${PEDIDOS_DB}
+      PORT: 5000
       INVENTARIO_URL: http://inventario:5000
       CLIENTES_URL: http://clientes:5000
-      FLASK_ENV: ${FLASK_ENV}
     depends_on:
       db:
         condition: service_healthy
@@ -129,14 +145,18 @@ services:
     restart: unless-stopped
 
   reportes:
-    build: ./servicios/reportes
+    build: ./backend/reportes
     image: ${DOCKERHUB_NAMESPACE}/reportes:1.0
     container_name: elquetzal-reportes
     environment:
-      DATABASE_URL: postgresql://${REPORTES_DB_USER}:${REPORTES_DB_PASSWORD}@db:5432/${REPORTES_DB}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${REPORTES_DB_USER}
+      DB_PASSWORD: ${REPORTES_DB_PASSWORD}
+      DB_NAME: ${REPORTES_DB}
+      PORT: 5000
       INVENTARIO_URL: http://inventario:5000
       PEDIDOS_URL: http://pedidos:5000
-      FLASK_ENV: ${FLASK_ENV}
     depends_on:
       db:
         condition: service_healthy
