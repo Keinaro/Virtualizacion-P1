@@ -13,17 +13,57 @@ async function peticion (ruta, opciones = {}) {
     ...opciones
   })
 
-  if (!respuesta.ok) {
-    const detalle = await respuesta.text()
-    throw new Error(detalle || `Error ${respuesta.status}`)
+  let datos = null
+
+  if (respuesta.status !== 204) {
+    const tipoContenido = respuesta.headers.get('content-type') || ''
+
+    if (tipoContenido.includes('application/json')) {
+      datos = await respuesta.json()
+    } else {
+      datos = await respuesta.text()
+    }
   }
 
-  return respuesta.status === 204 ? null : respuesta.json()
+  if (!respuesta.ok) {
+    let detalle = `Error ${respuesta.status}`
+
+    if (typeof datos === 'string' && datos) {
+      detalle = datos
+    } else if (datos && typeof datos === 'object') {
+      detalle =
+        datos.error ||
+        datos.mensaje ||
+        datos.message ||
+        JSON.stringify(datos)
+    }
+
+    const error = new Error(detalle)
+    error.status = respuesta.status
+    throw error
+  }
+
+  return datos
 }
 
 export const api = {
-  get: (ruta) => peticion(ruta),
-  post: (ruta, cuerpo) => peticion(ruta, { method: 'POST', body: JSON.stringify(cuerpo) }),
-  put: (ruta, cuerpo) => peticion(ruta, { method: 'PUT', body: JSON.stringify(cuerpo) }),
-  delete: (ruta) => peticion(ruta, { method: 'DELETE' })
+  get: (ruta) =>
+    peticion(ruta),
+
+  post: (ruta, cuerpo) =>
+    peticion(ruta, {
+      method: 'POST',
+      body: JSON.stringify(cuerpo)
+    }),
+
+  put: (ruta, cuerpo) =>
+    peticion(ruta, {
+      method: 'PUT',
+      body: JSON.stringify(cuerpo)
+    }),
+
+  delete: (ruta) =>
+    peticion(ruta, {
+      method: 'DELETE'
+    })
 }
