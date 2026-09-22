@@ -31,8 +31,10 @@ services:
       REPORTES_DB_USER: ${REPORTES_DB_USER}
       REPORTES_DB_PASSWORD: ${REPORTES_DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+    - pgdata:/var/lib/postgresql/data
+    - ./db/init:/docker-entrypoint-initdb.d:ro
+    - ./db/schemas:/opt/elquetzal/schemas:ro
+    - ./db/seeds:/opt/elquetzal/seeds:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER}"]
       interval: 10s
