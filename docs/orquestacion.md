@@ -23,7 +23,7 @@ válida desde cualquier contenedor del stack.
 | `clientes`   | `<namespace>/clientes:1.0`        | 5000 | no |
 | `pedidos`    | `<namespace>/pedidos:1.0`         | 5000 | no |
 | `reportes`   | `<namespace>/reportes:1.0`        | 5000 | no |
-| `gateway`    | `<namespace>/gateway:1.0`         | 80   | **sí — `${GATEWAY_PORT}` (8080)** |
+| `gateway`    | `<namespace>/gateway:1.0`         | 80   | **sí — `${GATEWAY_PORT}` (80 en la VM)** |
 
 **Solo el gateway publica puerto.** Los microservicios y Postgres viven
 únicamente en la red interna: desde el host no se les puede llegar directo, que
@@ -39,15 +39,29 @@ es justo lo que pide el enunciado.
 `depends_on` por sí solo espera a que el contenedor **arranque**, no a que la
 aplicación **responda**. Por eso cada servicio declara un `healthcheck`:
 
-- `db` → `pg_isready`
+- `db` → `pg_isready -h 127.0.0.1` (TCP: ver nota abajo)
 - Los 5 Flask → sonda HTTP a `/health` con la stdlib de Python
 - `gateway` → `wget --spider` contra `/`
 
 La cadena real es:
 
 ```
-db (healthy) → los 5 microservicios (healthy) → gateway
+db (healthy) → catalogo, inventario, clientes (healthy)
+             → pedidos   (espera inventario + clientes)
+             → reportes  (espera inventario + pedidos)
+             → gateway   (espera los 5)
 ```
+
+`pedidos` y `reportes` dependen además de los servicios que consumen por HTTP,
+así no reciben peticiones mientras sus dependencias todavía no responden.
+
+**Por qué `-h 127.0.0.1` en `pg_isready`:** la primera vez que se crea el
+volumen, la imagen de Postgres ejecuta los scripts de `db/init/` sobre un
+servidor temporal que solo escucha por socket Unix. Sin `-h`, `pg_isready` usa
+ese socket y reporta *healthy* antes de que existan las bases, y los
+microservicios arrancan y fallan. Con `-h 127.0.0.1` la sonda va por TCP, que
+solo se abre cuando la inicialización terminó. `start_period: 30s` cubre esa
+primera inicialización.
 
 Los microservicios usan la stdlib de Python en lugar de `curl`/`wget` porque la
 imagen `python:3.12-slim` no los trae, e instalarlos solo para la sonda infla la
@@ -69,9 +83,23 @@ Cero secretos quemados en el código.
 cp .env.example .env    # y rellenar con las claves reales
 ```
 
-<<<<<<< HEAD
 Las credenciales llegan a cada microservicio mediante `DB_HOST`, `DB_PORT`,
 `DB_USER`, `DB_PASSWORD` y `DB_NAME`, configuradas en `docker-compose.yml`.
+El servicio `db` recibe además las variables `<SERVICIO>_DB*` que consumen los
+scripts de `db/init/` (Área 4) para crear cada base y su usuario.
+
+| Variable | Uso |
+|---|---|
+| `POSTGRES_SUPERUSER` / `POSTGRES_SUPERUSER_PASSWORD` | superusuario, solo lo usa `db` |
+| `<SERVICIO>_DB`, `<SERVICIO>_DB_USER`, `<SERVICIO>_DB_PASSWORD` | una base y un usuario por microservicio |
+| `GATEWAY_PORT` | puerto de la VM donde escucha el gateway (**80**) |
+| `DOCKERHUB_NAMESPACE` | namespace de las imágenes (`keinaro`) |
+
+**Puerto del gateway y la red del Área 1:** la VM usa NAT con la regla
+host `127.0.0.1:8080` → VM `80`. Por eso en la VM `GATEWAY_PORT=80`, y desde
+el navegador del host se abre `http://127.0.0.1:8080`. Si alguien levanta el
+stack directo en su laptop con Docker Desktop, puede usar `GATEWAY_PORT=8080`
+en su `.env` local.
 
 ---
 
@@ -86,18 +114,23 @@ docker compose up -d
 docker compose ps       # los 7 contenedores deben verse (healthy)
 ```
 
-Abrir `http://localhost:8080` (o `http://<IP-de-la-VM>:8080` desde el host).
+Desde el navegador del host: `http://127.0.0.1:8080` (reenvío NAT del Área 1).
 
 ### Verificar que todo responde
 
+Dentro de la VM (gateway en el puerto 80):
+
 ```bash
-curl -i http://localhost:8080/                      # frontend Vue -> 200
-curl http://localhost:8080/api/catalogo/health
-curl http://localhost:8080/api/inventario/health
-curl http://localhost:8080/api/clientes/health
-curl http://localhost:8080/api/pedidos/health
-curl http://localhost:8080/api/reportes/health
+curl -i http://localhost/                      # frontend Vue -> 200
+curl http://localhost/health                   # gateway
+curl http://localhost/api/catalogo/health
+curl http://localhost/api/inventario/health
+curl http://localhost/api/clientes/health
+curl http://localhost/api/pedidos/health
+curl http://localhost/api/reportes/health
 ```
+
+Desde el host, las mismas rutas con `http://127.0.0.1:8080`.
 
 ### Diagnóstico
 
@@ -131,8 +164,18 @@ Como cada servicio ya declara su clave `image:` con `${DOCKERHUB_NAMESPACE}`,
 Se usa la etiqueta `1.0` y no `latest`, para poder rastrear exactamente qué
 versión corrió en la demo.
 
-> Pendiente: fijar `DOCKERHUB_NAMESPACE` en el `.env` con el namespace real del
-> grupo antes de publicar.
+Imágenes del grupo (etiqueta `1.0`):
+
+| Imagen | Origen del build |
+|---|---|
+| `keinaro/catalogo:1.0`   | `backend/catalogo` |
+| `keinaro/inventario:1.0` | `backend/inventario` |
+| `keinaro/clientes:1.0`   | `backend/clientes` |
+| `keinaro/pedidos:1.0`    | `backend/pedidos` |
+| `keinaro/reportes:1.0`   | `backend/reportes` |
+| `keinaro/gateway:1.0`    | `gateway/Dockerfile` (contexto: raíz) |
+
+`postgres:16-alpine` es imagen oficial, no se publica.
 
 ---
 
@@ -179,13 +222,19 @@ La tabla de prueba se eliminó al terminar.
 - Usuario no-root `appuser` (menor privilegio).
 - `.dockerignore` por servicio, para no copiar `venv/`, `__pycache__/` ni `.git/`.
 
-**`wsgi.py` en lugar de `app.py`**
+- Servidor `gunicorn` (2 workers) en lugar del servidor de desarrollo de Flask.
 
-Cada servicio tiene un `app.py` y además un paquete `app/`. En Python el paquete
-gana: `import app` resuelve a `app/__init__.py`, así que `gunicorn app:app`
-fallaba con `Failed to find attribute 'app' in 'app'` y los 5 contenedores
-reiniciaban en bucle. El `Dockerfile` renombra el punto de entrada a `wsgi.py` y
-gunicorn usa `wsgi:app`, que es inequívoco, sin tocar el código del Área 5.
+Los `Dockerfile` viven en `backend/<servicio>/` y se mantienen junto con el
+Área 5. El contexto de build de cada microservicio es su propia carpeta.
+
+**Historial: `wsgi.py`**
+
+En la estructura anterior (`servicios/<servicio>/`) convivían un `app.py` y un
+paquete `app/`; `import app` resolvía al paquete y `gunicorn app:app` fallaba
+con `Failed to find attribute 'app' in 'app'`. Se resolvió renombrando el punto
+de entrada a `wsgi.py`. La refactorización del Área 5 a `backend/` eliminó el
+paquete `app/`, así que ahora gunicorn usa `app:app` directo y la carpeta
+`servicios/` se retiró.
 
 **Gateway: build multi-etapa**
 
