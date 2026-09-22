@@ -227,4 +227,13 @@ El diagrama ER final debe representar por separado las cinco bases de datos y di
 - relaciones físicas mediante foreign keys dentro de una misma base;
 - relaciones lógicas entre microservicios.
 
-El diagrama final se agregará a `docs/img/` para utilizarlo en la documentación y presentación del proyecto.
+## Diagrama ER
+
+El modelo de datos se representa en el siguiente diagrama:
+
+![Modelo de Datos — El Quetzal](img/modelo-datos.jpg)
+
+El diagrama separa las cinco bases de datos del sistema.
+
+- Las líneas continuas representan relaciones físicas mediante foreign keys dentro de una misma base de datos.
+- Las líneas punteadas representan relaciones lógicas entre microservicios y no foreign keys de PostgreSQL.
