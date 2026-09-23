@@ -61,10 +61,18 @@ En el instalador (Subiquity):
 - Idioma/teclado: el que prefieras.
 - Red: deja el adaptador NAT (enp0s3) con DHCP; el Host-Only (enp0s8) también
   por DHCP — VirtualBox trae su propio DHCP para la red Host-Only.
-- Disco: usar todo el disco (los 25 GB asignados).
-- **Nombre del host: `srv-elquetzal-maximus`** (sustituye X por el número
-  real de grupo — esta es una de las evidencias personalizadas obligatorias
-  del enunciado, tiene que aparecer en las capturas).
+- Disco: usar todo el disco (los 25 GB asignados). El instalador ofrece
+  configurarlo como grupo LVM — déjalo marcado, pero revisa el resumen antes
+  de confirmar: por defecto solo asigna la mitad del disco al filesystem raíz
+  y deja el resto como espacio libre sin usar dentro del grupo de volúmenes.
+  Si pasa eso, después de instalar hay que extenderlo:
+  ```bash
+  sudo lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+  sudo resize2fs /dev/ubuntu-vg/ubuntu-lv
+  ```
+- **Nombre del host: `srv-elquetzal-maximus`** — esta es una de las
+  evidencias personalizadas obligatorias del enunciado, tiene que aparecer
+  en las capturas.
 - Usuario: crea un usuario normal (ej. `ubuntu`) con contraseña — lo usarás
   por SSH, no hace falta root directo.
 - **Instalar el servidor OpenSSH** cuando el instalador lo pregunte (checkbox
