@@ -45,7 +45,7 @@ Esto usa `VBoxManage` para:
 - Crear un disco de 25 GB (VDI, dinámico).
 - Adjuntar la ISO de Ubuntu 22.04.5 al lector virtual.
 - Configurar Adaptador 1 = NAT con reenvío de puertos (SSH 2222→22, HTTP
-  8080→80) y Adaptador 2 = Host-Only (`192.168.56.x`) — ver
+  8090→80) y Adaptador 2 = Host-Only (`192.168.56.x`) — ver
   `03-red-host-vm.md` para el porqué.
 - Habilitar el arranque en modo headless (sin ventana de VirtualBox).
 

@@ -19,18 +19,26 @@ en `127.0.0.1`, sin importar en qué red física esté la laptop:
 | Puerto host | Puerto VM | Servicio |
 |---|---|---|
 | 2222 | 22 | SSH |
-| 8080 | 80 | Gateway nginx (la app) |
+| 8090 | 80 | Gateway nginx (la app) |
 
 Configurado por `host/01-create-vm.ps1`:
 
 ```powershell
 VBoxManage modifyvm "srv-elquetzal-maximus" --natpf1 "ssh,tcp,127.0.0.1,2222,,22"
-VBoxManage modifyvm "srv-elquetzal-maximus" --natpf1 "http,tcp,127.0.0.1,8080,,80"
+VBoxManage modifyvm "srv-elquetzal-maximus" --natpf1 "http,tcp,127.0.0.1,8090,,80"
 ```
 
-El navegador del host abre `http://127.0.0.1:8080` y llega al gateway nginx
+El navegador del host abre `http://127.0.0.1:8090` y llega al gateway nginx
 de la VM. Este es el modo a usar **en la defensa**, porque no depende de la
 red del salón.
+
+El puerto host 8090 se eligió porque en esta laptop el 8080 ya lo ocupaba
+otro servicio (un Postgres/EnterpriseDB local, sin relación con este
+proyecto). Antes de asumir que el reenvío llega a la VM, conviene comparar
+el contenido de la respuesta (`curl http://127.0.0.1:<puerto>/`) contra lo
+que sirve la VM directamente por SSH — un puerto ocupado en el host no
+siempre da error de conexión, puede responder con otro servicio y parecer
+que todo funciona.
 
 ## Adaptador 2 — Host-Only (acceso directo, desarrollo)
 
@@ -80,6 +88,6 @@ hace falta el día de la defensa.
 
 ## Recomendación para la demo
 
-Usar NAT + reenvío (`127.0.0.1:8080`) como plan principal — funciona igual
+Usar NAT + reenvío (`127.0.0.1:8090`) como plan principal — funciona igual
 en casa, en la universidad o en cualquier red donde se conecte la laptop —
 y tener Host-Only como respaldo para depuración directa por SSH.
