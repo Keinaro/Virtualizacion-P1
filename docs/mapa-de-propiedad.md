@@ -7,6 +7,12 @@ Cada integrante es dueño documentado de un área y debe poder defenderla indivi
 
 ## Área 1 — Infraestructura (VM, Linux, Docker Engine, red host↔VM)
 
+**Responsable:** Daniel Paz. Implementación real (VM ya provisionada, hostname
+`srv-elquetzal-maximus`, Docker instalado) documentada en
+[`docs/00-sizing.md`](00-sizing.md) a [`docs/05-checklist-entrega.md`](05-checklist-entrega.md)
+y en `host/`, `guest/`, `config/vm.conf`. La guía genérica de esta sección se
+deja para referencia.
+
 **Responsabilidad:** que exista una VM Ubuntu Server funcional, bien dimensionada, con Docker instalado y accesible desde el navegador del host.
 
 ### Tareas específicas
