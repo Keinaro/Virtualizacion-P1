@@ -20,7 +20,7 @@ Virtualización — Ingeniería en Informática y Sistemas, Universidad Rafael L
 ```
 elquetzal/
 ├── gateway/            Área 2 — nginx.conf, Dockerfile
-├── servicios/          Área 5 — microservicios Flask
+├── backend/            Área 5 — microservicios Flask
 │   ├── catalogo/
 │   ├── inventario/
 │   ├── clientes/
@@ -43,17 +43,21 @@ cp .env.example .env
 # 2. Construir y levantar
 docker compose up -d --build
 
-# 3. Verificar
-docker compose ps
-curl http://localhost:8080/health
+# 3. Verificar (dentro de la VM)
+docker compose ps          # los 7 contenedores en (healthy)
+curl http://localhost/health
 ```
 
-La app queda en `http://<ip-de-la-vm>:8080` (puerto configurable con
-`GATEWAY_PORT`).
+En la VM el gateway escucha en el puerto 80 (`GATEWAY_PORT=80`). Desde el
+navegador del host se abre `http://127.0.0.1:8080`, gracias al reenvío NAT
+host `8080` → VM `80` del Área 1. Runbook completo en
+[`docs/orquestacion.md`](docs/orquestacion.md).
 
-## Aplicar esquema y datos semilla
+## Esquema y datos semilla
 
-Ver [`db/README.md`](db/README.md). Los carnés del equipo se siembran en
+Se aplican **automáticamente** la primera vez que se crea el volumen
+`elquetzal_pgdata` (scripts de `db/init/`). Detalle en
+[`db/README.md`](db/README.md). Los carnés del equipo se siembran en
 `clientes_db` — es evidencia obligatoria del proyecto.
 
 ## Publicar imágenes en Docker Hub
