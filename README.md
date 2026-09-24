@@ -53,8 +53,8 @@ curl http://localhost/health
 ```
 
 En la VM el gateway escucha en el puerto 80 (`GATEWAY_PORT=80`). Desde el
-navegador del host se abre `http://127.0.0.1:8080`, gracias al reenvío NAT
-host `8080` → VM `80` del Área 1. Runbook completo en
+navegador del host se abre `http://127.0.0.1:8090`, gracias al reenvío NAT
+host `8090` → VM `80` del Área 1. Runbook completo en
 [`docs/orquestacion.md`](docs/orquestacion.md).
 
 ## Esquema y datos semilla
