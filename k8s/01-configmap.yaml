@@ -1,0 +1,32 @@
+# ============================================================
+# Proyecto 2 — El Quetzal | Área 3 (Jorge)
+# Configuración NO sensible. Equivale a las líneas del .env del
+# Proyecto 1 que no son contraseñas, más los valores que en el
+# compose estaban escritos a mano (db, 5432, URLs internas).
+# Las credenciales viven en el Secret db-credentials.
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: proyecto-2-maximus
+  labels: { equipo: maximus }
+data:
+  # Host y puerto de Postgres: nombre del Service, no una IP.
+  DB_HOST: "db"
+  DB_PORT: "5432"
+
+  # Una base por microservicio (mismos nombres del .env del Proyecto 1).
+  # La consumen los Deployments del backend (DB_NAME) y los scripts de
+  # db/init/ dentro del Pod de Postgres.
+  CATALOGO_DB: "catalogo_db"
+  INVENTARIO_DB: "inventario_db"
+  CLIENTES_DB: "clientes_db"
+  PEDIDOS_DB: "pedidos_db"
+  REPORTES_DB: "reportes_db"
+
+  # Llamadas entre servicios. Los nombres de variable son los que lee el
+  # código (os.getenv en backend/pedidos/app.py y backend/reportes/app.py).
+  CLIENTES_URL: "http://clientes:5000"
+  INVENTARIO_URL: "http://inventario:5000"
+  PEDIDOS_URL: "http://pedidos:5000"

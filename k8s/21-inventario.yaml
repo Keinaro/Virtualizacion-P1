@@ -1,0 +1,64 @@
+# ============================================================
+# Proyecto 2 — El Quetzal | Área 3 (Jorge)
+# Microservicio inventario: Deployment + Service ClusterIP.
+# El Service se llama igual que en el compose del Proyecto 1, así
+# el DNS del clúster resuelve "inventario" igual que la red de Docker.
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventario
+  namespace: proyecto-2-maximus
+  labels: { app: inventario, equipo: maximus }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: inventario }
+  template:
+    metadata:
+      labels: { app: inventario, equipo: maximus }
+    spec:
+      # Reemplaza a depends_on: service_healthy. El contenedor principal no
+      # arranca hasta que el Service db acepte conexiones TCP.
+      initContainers:
+        - name: espera-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h \"$DB_HOST\" -p \"$DB_PORT\"; do echo esperando db; sleep 2; done"]
+          envFrom:
+            - configMapRef: { name: app-config }
+      containers:
+        - name: inventario
+          image: keinaro/inventario:1.0
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 5000 }]
+          envFrom:
+            - configMapRef: { name: app-config }        # DB_HOST, DB_PORT, URLs internas
+          env:
+            # database.py arma la cadena de conexión con estas 5 variables
+            - name: DB_NAME
+              valueFrom: { configMapKeyRef: { name: app-config, key: INVENTARIO_DB } }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-credentials, key: INVENTARIO_DB_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-credentials, key: INVENTARIO_DB_PASSWORD } }
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventario
+  namespace: proyecto-2-maximus
+  labels: { app: inventario, equipo: maximus }
+spec:
+  type: ClusterIP
+  selector: { app: inventario }
+  ports: [{ port: 5000, targetPort: 5000 }]
