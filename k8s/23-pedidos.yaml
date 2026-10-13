@@ -1,0 +1,66 @@
+# ============================================================
+# Proyecto 2 — El Quetzal | Área 3 (Jorge)
+# Microservicio pedidos: Deployment + Service ClusterIP.
+# El Service se llama igual que en el compose del Proyecto 1, así
+# el DNS del clúster resuelve "pedidos" igual que la red de Docker.
+# Llama a inventario (reservas) y clientes (valida carné) con
+# INVENTARIO_URL y CLIENTES_URL, que llegan del ConfigMap.
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pedidos
+  namespace: proyecto-2-maximus
+  labels: { app: pedidos, equipo: maximus }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pedidos }
+  template:
+    metadata:
+      labels: { app: pedidos, equipo: maximus }
+    spec:
+      # Reemplaza a depends_on: service_healthy. El contenedor principal no
+      # arranca hasta que el Service db acepte conexiones TCP.
+      initContainers:
+        - name: espera-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h \"$DB_HOST\" -p \"$DB_PORT\"; do echo esperando db; sleep 2; done"]
+          envFrom:
+            - configMapRef: { name: app-config }
+      containers:
+        - name: pedidos
+          image: keinaro/pedidos:1.0
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 5000 }]
+          envFrom:
+            - configMapRef: { name: app-config }        # DB_HOST, DB_PORT, URLs internas
+          env:
+            # database.py arma la cadena de conexión con estas 5 variables
+            - name: DB_NAME
+              valueFrom: { configMapKeyRef: { name: app-config, key: PEDIDOS_DB } }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-credentials, key: PEDIDOS_DB_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-credentials, key: PEDIDOS_DB_PASSWORD } }
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pedidos
+  namespace: proyecto-2-maximus
+  labels: { app: pedidos, equipo: maximus }
+spec:
+  type: ClusterIP
+  selector: { app: pedidos }
+  ports: [{ port: 5000, targetPort: 5000 }]

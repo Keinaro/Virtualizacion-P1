@@ -1,112 +1,131 @@
-# El Quetzal — Proyecto 1
+# El Quetzal — Proyecto 2: Migración a Kubernetes
 
-Tienda de artesanías guatemaltecas desplegada como microservicios sobre
-infraestructura virtualizada.
+Tienda de artesanías guatemaltecas desplegada como microservicios. La misma
+aplicación del Proyecto 1, ahora orquestada con **k3s** dentro de la VM
+`srv-elquetzal-maximus`.
 Virtualización — Ingeniería en Informática y Sistemas, Universidad Rafael Landívar.
 
-## Stack
+**Equipo:** `maximus` · **Namespace:** `proyecto-2-maximus`
 
-| Capa | Tecnología |
-|---|---|
-| Virtualización | VirtualBox + Ubuntu Server (headless) |
-| Contenedores | Docker Engine + Docker Compose |
-| Gateway | nginx |
-| Backend | 5 microservicios Flask (Python 3.12) |
-| Base de datos | PostgreSQL 16 (una base por microservicio) |
-| Frontend | Vue 3 + Vite (build estático servido por nginx) |
+> Kubernetes no acepta guiones bajos en nombres de namespace, así que
+> `proyecto_2_maximus` (carpeta y repositorio) se escribe `proyecto-2-maximus`
+> como namespace.
+>
+> El Proyecto 2 continúa en este mismo repositorio (`Keinaro/Virtualizacion-P1`)
+> y se clona en la carpeta `proyecto_2_maximus`.
+
+## Cómo ejecutar (dentro de la VM)
+
+```bash
+git clone https://github.com/Keinaro/Virtualizacion-P1.git proyecto_2_maximus && cd proyecto_2_maximus
+cp .env.example .env && nano .env        # contraseñas reales; .env no se versiona
+./scripts/crear-secret.sh .env           # crea el Secret db-credentials en el clúster
+./scripts/deploy.sh                      # aplica todo en orden y espera cada capa
+kubectl get all -n proyecto-2-maximus
+```
+
+Desde el navegador del host:
+
+- NodePort: `http://192.168.56.10:30080`
+- LoadBalancer: `http://192.168.56.10:8080`
+- Respaldo si falla la red: `kubectl port-forward svc/gateway 8088:80 --address 0.0.0.0 -n proyecto-2-maximus`
+
+Antes de calificar, el stack de Compose del Proyecto 1 tiene que estar abajo
+(`docker compose down`, **sin** `-v`).
+
+## Arquitectura
+
+```text
+navegador ─► NodePort 30080 / LoadBalancer 8080
+                     │
+                gateway (nginx, 2 réplicas)
+               ┌─────┴───────────────────────┐
+           /   │                     /api/<servicio>/
+               ▼                             ▼
+        frontend (Vue)        catalogo · inventario · clientes · pedidos · reportes
+                                             │  (Flask, puerto 5000)
+                                             ▼
+                                db (Postgres 16 + PVC, una base por servicio)
+```
+
+Todo vive en el namespace `proyecto-2-maximus`. Solo el gateway se expone
+fuera del clúster; el backend y la base son ClusterIP.
 
 ## Estructura
 
-```
-elquetzal/
-├── gateway/            Área 2 — nginx.conf, Dockerfile
-├── backend/            Área 5 — microservicios Flask
-│   ├── catalogo/
-│   ├── inventario/
-│   ├── clientes/
-│   ├── pedidos/        regla crítica: descuento atómico de stock
-│   └── reportes/
-├── frontend/           Área 6 — proyecto Vue
-├── db/                 Área 4 — schema, seeds, init
-├── docker-compose.yml  Área 3 — orquestación
-├── .env.example        Área 3 — plantilla (el .env real NO se versiona)
-├── host/               Área 1 — scripts de Windows para crear/gestionar la VM
-├── guest/              Área 1 — scripts que corren dentro de Ubuntu Server
-├── config/             Área 1 — sizing y variables de la VM
-└── docs/               arquitectura, modelo de datos, mapa de propiedad, costos,
-                        más setup de VM/Docker/red (Área 1)
-```
-
-## Levantar el stack
-
-```bash
-# 1. Configurar el entorno
-cp .env.example .env
-# editar .env con las credenciales reales
-
-# 2. Construir y levantar
-docker compose up -d --build
-
-# 3. Verificar (dentro de la VM)
-docker compose ps          # los 7 contenedores en (healthy)
-curl http://localhost/health
+```text
+proyecto_2_maximus/
+├── backend/            5 microservicios Flask (código del Proyecto 1, sin cambios)
+├── frontend/           Vue 3 + Dockerfile propio (sale del gateway)
+├── db/                 init, schemas y seeds (se montan en el Pod de Postgres)
+├── k8s/
+│   ├── 00-namespace.yaml               Daniel
+│   ├── 01-configmap.yaml               Jorge
+│   ├── 10-postgres-pvc.yaml            Julio
+│   ├── 11-postgres.yaml                Julio
+│   ├── 12-postgres-svc.yaml            Julio
+│   ├── 13-db-scripts.yaml              Julio
+│   ├── 20-catalogo.yaml … 24-reportes.yaml   Jorge (21 lo edita Sofía para escalar)
+│   ├── 30-frontend.yaml                Ana Lucía
+│   ├── 40-gateway-conf.yaml            Giancarlo
+│   ├── 41-gateway.yaml                 Giancarlo
+│   ├── 42-gateway-svc.yaml             Giancarlo
+│   └── plantillas/
+│       └── 02-secret.example.yaml      Jorge (solo claves; el Secret real NO se sube)
+├── scripts/            deploy.sh, crear-secret.sh, backup.sh, demo-ciclo-vida.sh
+├── docs/               orquestacion-k8s.md (traducción Compose → K8s) y docs del Proyecto 1
+├── evidencias/         PDF de evidencias
+└── docker-compose.yml  despliegue del Proyecto 1, se conserva como referencia de la traducción
 ```
 
-En la VM el gateway escucha en el puerto 80 (`GATEWAY_PORT=80`). Desde el
-navegador del host se abre `http://127.0.0.1:8090`, gracias al reenvío NAT
-host `8090` → VM `80` del Área 1. Runbook completo en
-[`docs/orquestacion.md`](docs/orquestacion.md).
+## Contrato de nombres
 
-## Esquema y datos semilla
+| Elemento | Valor |
+|---|---|
+| Namespace | `proyecto-2-maximus` |
+| Base de datos | Service `db`, puerto 5432, `postgres:16-alpine` |
+| Backend | Services `catalogo`, `inventario`, `clientes`, `pedidos`, `reportes` en 5000; imágenes `keinaro/<servicio>:1.0` |
+| Frontend | Service `frontend`, puerto 80; imagen `keinaro/frontend:1.0` |
+| Gateway | `nginx:1.27-alpine` + ConfigMap; Services `gateway` (ClusterIP 80), `gateway-nodeport` (30080), `gateway-lb` (LoadBalancer 8080) |
+| ConfigMap | `app-config`: `DB_HOST`, `DB_PORT`, los 5 nombres de base y las URLs internas |
+| Secret | `db-credentials`: superusuario y usuario/contraseña de cada servicio |
+| Labels | `app: <nombre>` y `equipo: maximus` en todo recurso |
 
-Se aplican **automáticamente** la primera vez que se crea el volumen
-`elquetzal_pgdata` (scripts de `db/init/`). Detalle en
-[`db/README.md`](db/README.md). Los carnés del equipo se siembran en
-`clientes_db` — es evidencia obligatoria del proyecto.
-
-## Infraestructura (Área 1)
-
-La VM Ubuntu Server con Docker ya está provisionada. Documentación y scripts:
-
-- [`docs/00-sizing.md`](docs/00-sizing.md) — justificación de CPU/RAM/disco.
-- [`docs/01-vm-setup.md`](docs/01-vm-setup.md) — instalación de VirtualBox y la VM paso a paso.
-- [`docs/02-docker-install.md`](docs/02-docker-install.md) — instalación de Docker Engine + Compose por CLI.
-- [`docs/03-red-host-vm.md`](docs/03-red-host-vm.md) — red host↔VM (NAT+reenvío vs Bridge).
-- [`docs/04-evidencias.md`](docs/04-evidencias.md) — checklist de evidencias personalizadas.
-- [`docs/05-checklist-entrega.md`](docs/05-checklist-entrega.md) — checklist contra la rúbrica.
-- `host/` — scripts de PowerShell para crear y gestionar la VM desde Windows.
-- `guest/` — scripts de bash para correr dentro de la VM (post-instalación, Docker, verificación de evidencias).
-- `config/vm.conf` — sizing, nombre de grupo, carné y puertos de la VM.
-
-## Publicar imágenes en Docker Hub
-
-```bash
-docker login
-docker compose build
-docker compose push
-```
-
-Las etiquetas salen de `DOCKERHUB_NAMESPACE` en `.env`. Usar versiones
-semánticas (`1.0`), no solo `latest`, para poder rastrear qué corre en la demo.
-
-## Reglas de trabajo del equipo
-
-- **Nunca** commitear el `.env` real. Solo `.env.example`.
-- Respetar los nombres de servicios y puertos de `docker-compose.yml`:
-  son el contrato entre áreas.
-- El frontend llama **siempre** a través del gateway (`/api/<servicio>/`),
-  nunca directo a un microservicio.
-- Documentar con capturas donde se vea el **reloj del sistema**.
+Los Services se llaman igual que los servicios del compose: ni el código Flask
+ni las llamadas entre servicios cambian. Detalle de cada decisión en
+[`docs/orquestacion-k8s.md`](docs/orquestacion-k8s.md).
 
 ## Áreas y responsables
 
 | Área | Tema | Responsable |
 |---|---|---|
-| 1 | Infraestructura (VM, Linux, Docker Engine, red) | Daniel Paz |
-| 2 | Gateway y redes Docker | _por asignar_ |
-| 3 | Orquestación y publicación | _por asignar_ |
-| 4 | Datos (Postgres, esquemas, seeds) | _por asignar_ |
-| 5 | Backend de dominio (Flask) | _por asignar_ |
-| 6 | Frontend + costos | _por asignar_ |
+| 1 | VM, k3s, red y namespace | Daniel Paz |
+| 2 | Gateway y los tres tipos de Service | Giancarlo |
+| 3 | Repo, ConfigMap, Secret, Deployments del backend, integración | Jorge Muñoz |
+| 4 | Postgres, PVC y persistencia | Julio |
+| 5 | Conexión por variables, escalado y autoreparación | Sofía |
+| 6 | Frontend en Kubernetes y PDF de evidencias | Ana Lucía |
 
-Detalle completo en [`docs/mapa-de-propiedad.md`](docs/mapa-de-propiedad.md).
+## Reglas de trabajo
+
+- Cada quien trabaja en `dev/<nombre>` y abre PR a `develop`. Jorge revisa
+  contra el contrato de nombres y hace merge; `develop` pasa a `main` el
+  miércoles 14 en la noche.
+- **Nunca** commitear `.env`, `.env.secrets` ni un Secret real. Si uno se sube,
+  cambiar las contraseñas: borrar el commit no lo saca del historial.
+- Todo recurso lleva `namespace: proyecto-2-maximus`; nada en `default`.
+- Escalar editando `replicas` en el YAML y aplicando; nunca `kubectl scale`.
+- Tags fijos (`1.0`), nunca `latest`.
+- Validar antes de aplicar: `kubectl apply -f k8s/ --dry-run=server`.
+- **Nunca** `kubectl delete namespace proyecto-2-maximus` en la VM de la demo:
+  borra el PVC y los datos.
+- Capturas con el **reloj del sistema** visible y sin contraseñas.
+
+## Proyecto 1
+
+La documentación del despliegue con Docker Compose y de la VM sigue en
+`docs/`: [`orquestacion.md`](docs/orquestacion.md),
+[`arquitectura.md`](docs/arquitectura.md),
+[`modelo-datos.md`](docs/modelo-datos.md) y los documentos `00`–`05` del
+Área 1. Los scripts de creación de la VM están en `host/`, `guest/` y
+`config/`.
