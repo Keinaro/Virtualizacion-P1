@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-conf
+  namespace: proyecto-2-maximus
+  labels: { app: gateway, equipo: maximus }
+data:
+  default.conf: |
+    server {
+      listen 80;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+
+      location = /health        { return 200 "gateway maximus ok\n"; }
+      location /api/catalogo/   { proxy_pass http://catalogo:5000/; }
+      location /api/inventario/ { proxy_pass http://inventario:5000/; }
+      location /api/clientes/   { proxy_pass http://clientes:5000/; }
+      location /api/pedidos/    { proxy_pass http://pedidos:5000/; }
+      location /api/reportes/   { proxy_pass http://reportes:5000/; }
+      location /                { proxy_pass http://frontend:80; }
+    }
