@@ -3,6 +3,16 @@
 .env.local
 *.env
 !.env.example
+.env.secrets
+
+# Proyecto 2 — el Secret real de Kubernetes nunca se versiona.
+# Solo la plantilla con valores CAMBIAR.
+*secret*.yaml
+*secret*.yml
+!k8s/plantillas/02-secret.example.yaml
+
+# Respaldos de Postgres (contienen datos y hashes de contraseñas)
+backup_*.sql
 
 # Dependencias
 node_modules/

@@ -16,7 +16,7 @@ Los cinco microservicios usan Flask, SQLAlchemy y PostgreSQL independiente. Cada
 Definir la URL del gateway antes de ejecutar:
 
 ```bash
-BASE=http://localhost:8080/api
+BASE=http://localhost:8090/api
 ```
 
 Consultar inventario:

@@ -1,0 +1,9 @@
+# Proyecto 2 — El Quetzal | Área 1 (Daniel)
+# Namespace donde vive todo el proyecto. Kubernetes no admite guiones bajos
+# en los nombres, por eso es proyecto-2-maximus y no proyecto_2_maximus.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proyecto-2-maximus
+  labels:
+    equipo: maximus
