@@ -1,0 +1,145 @@
+# ============================================================
+# Proyecto 2 — El Quetzal | Área 4 (Julio)
+# Deployment de PostgreSQL en Kubernetes.
+# Mantiene el diseño del Proyecto 1:
+# - 1 motor PostgreSQL
+# - 5 bases independientes
+# - 5 usuarios
+# - schemas y seeds automáticos
+# - persistencia mediante PVC
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: proyecto-2-maximus
+  labels:
+    app: postgres
+    equipo: maximus
+
+spec:
+  replicas: 1
+
+  # Evita que Kubernetes intente levantar dos instancias de
+  # PostgreSQL al mismo tiempo sobre el mismo volumen.
+  strategy:
+    type: Recreate
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+        equipo: maximus
+
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 5432
+
+          # Configuración no sensible:
+          # nombres de las 5 bases, host y puerto.
+          envFrom:
+            - configMapRef:
+                name: app-config
+
+            # Credenciales de usuarios que utilizan los scripts
+            # de inicialización.
+            - secretRef:
+                name: db-credentials
+
+          # El Secret guarda POSTGRES_SUPERUSER, pero la imagen
+          # oficial de PostgreSQL espera POSTGRES_USER.
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_SUPERUSER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_SUPERUSER_PASSWORD
+
+            # Se usa un subdirectorio del PVC para los datos.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d postgres
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d postgres
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+
+          volumeMounts:
+            # Datos persistentes de PostgreSQL.
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+
+            # Scripts ejecutables de inicialización.
+            - name: db-init
+              mountPath: /docker-entrypoint-initdb.d
+
+            # Mantiene exactamente las rutas que ya funcionaron
+            # en el Proyecto 1.
+            - name: db-schemas
+              mountPath: /opt/elquetzal/schemas
+
+            - name: db-seeds
+              mountPath: /opt/elquetzal/seeds
+
+      volumes:
+        # PVC creado en 10-postgres-pvc.yaml.
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+        # Scripts .sh.
+        - name: db-init
+          configMap:
+            name: db-init
+            defaultMode: 0755
+
+        # Archivos SQL de estructura.
+        - name: db-schemas
+          configMap:
+            name: db-schemas
+
+        # Archivos SQL de datos iniciales.
+        - name: db-seeds
+          configMap:
+            name: db-seeds
