@@ -1,0 +1,20 @@
+# ============================================================
+# Proyecto 2 — El Quetzal | Área 4 (Julio)
+# Almacenamiento persistente para PostgreSQL en k3s.
+# Utiliza la StorageClass local-path predeterminada de k3s.
+# ============================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: proyecto-2-maximus
+  labels:
+    app: postgres
+    equipo: maximus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

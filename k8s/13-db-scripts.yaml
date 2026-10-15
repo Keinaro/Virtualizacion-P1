@@ -1,0 +1,200 @@
+apiVersion: v1
+data:
+  01-crear-bases.sh: |
+    #!/bin/bash
+    # ============================================================
+    # Γö£├╝rea 4 ╬ô├ç├╢ Crea una base y un usuario por microservicio.
+    # Se ejecuta automΓö£├¡ticamente al inicializar el volumen de Postgres
+    # (docker-entrypoint-initdb.d). Idempotente: se puede repetir.
+    # ============================================================
+    set -e
+
+    crear_base() {
+      local db="$1" usuario="$2" clave="$3"
+
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
+        DO \$\$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${usuario}') THEN
+            CREATE ROLE ${usuario} LOGIN PASSWORD '${clave}';
+          END IF;
+        END
+        \$\$;
+    EOSQL
+
+      # CREATE DATABASE no corre dentro de un bloque DO; se consulta antes.
+      if ! psql --username "$POSTGRES_USER" --dbname postgres -tAc \
+           "SELECT 1 FROM pg_database WHERE datname = '${db}'" | grep -q 1; then
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+          -c "CREATE DATABASE ${db} OWNER ${usuario};"
+      fi
+
+      # Menor privilegio: cada usuario solo sobre su propia base.
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+        -c "GRANT ALL PRIVILEGES ON DATABASE ${db} TO ${usuario};"
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${db}" \
+        -c "GRANT ALL ON SCHEMA public TO ${usuario};"
+    }
+
+    crear_base "$CATALOGO_DB"   "$CATALOGO_DB_USER"   "$CATALOGO_DB_PASSWORD"
+    crear_base "$INVENTARIO_DB" "$INVENTARIO_DB_USER" "$INVENTARIO_DB_PASSWORD"
+    crear_base "$CLIENTES_DB"   "$CLIENTES_DB_USER"   "$CLIENTES_DB_PASSWORD"
+    crear_base "$PEDIDOS_DB"    "$PEDIDOS_DB_USER"    "$PEDIDOS_DB_PASSWORD"
+    crear_base "$REPORTES_DB"   "$REPORTES_DB_USER"   "$REPORTES_DB_PASSWORD"
+
+    echo "Bases y usuarios por microservicio creados."
+  02-aplicar-esquemas-y-seeds.sh: |-
+    #!/bin/bash
+    set -e
+
+    echo "Aplicando esquemas y datos iniciales..."
+
+    aplicar_sql() {
+      local db="$1"
+      local usuario="$2"
+      local archivo="$3"
+
+      echo "Aplicando $archivo en $db..."
+
+      psql \
+        -v ON_ERROR_STOP=1 \
+        --username "$usuario" \
+        --dbname "$db" \
+        -f "$archivo"
+    }
+
+    # -------------------------
+    # Esquemas
+    # -------------------------
+
+    aplicar_sql "$CATALOGO_DB" \
+                "$CATALOGO_DB_USER" \
+                "/opt/elquetzal/schemas/catalogo.sql"
+
+    aplicar_sql "$INVENTARIO_DB" \
+                "$INVENTARIO_DB_USER" \
+                "/opt/elquetzal/schemas/inventario.sql"
+
+    aplicar_sql "$CLIENTES_DB" \
+                "$CLIENTES_DB_USER" \
+                "/opt/elquetzal/schemas/clientes.sql"
+
+    aplicar_sql "$PEDIDOS_DB" \
+                "$PEDIDOS_DB_USER" \
+                "/opt/elquetzal/schemas/pedidos.sql"
+
+    aplicar_sql "$REPORTES_DB" \
+                "$REPORTES_DB_USER" \
+                "/opt/elquetzal/schemas/reportes.sql"
+
+    # -------------------------
+    # Seeds
+    # -------------------------
+
+    aplicar_sql "$CATALOGO_DB" \
+                "$CATALOGO_DB_USER" \
+                "/opt/elquetzal/seeds/catalogo.sql"
+
+    aplicar_sql "$INVENTARIO_DB" \
+                "$INVENTARIO_DB_USER" \
+                "/opt/elquetzal/seeds/inventario.sql"
+
+    aplicar_sql "$CLIENTES_DB" \
+                "$CLIENTES_DB_USER" \
+                "/opt/elquetzal/seeds/clientes.sql"
+
+    echo "Esquemas y seeds aplicados correctamente."
+kind: ConfigMap
+metadata:
+  labels:
+    app: postgres
+    equipo: maximus
+  name: db-init
+  namespace: proyecto-2-maximus
+---
+apiVersion: v1
+data:
+  catalogo.sql: "CREATE TABLE IF NOT EXISTS categorias (\r\n    id          SERIAL
+    PRIMARY KEY,\r\n    nombre      VARCHAR(80) NOT NULL UNIQUE,\r\n    descripcion
+    TEXT\r\n);\r\n\r\nCREATE TABLE IF NOT EXISTS productos (\r\n    id           SERIAL
+    PRIMARY KEY,\r\n    sku          VARCHAR(40) NOT NULL UNIQUE,\r\n    nombre       VARCHAR(160)
+    NOT NULL,\r\n    categoria_id INTEGER REFERENCES categorias(id),\r\n    precio
+    \      NUMERIC(12,2) NOT NULL CHECK (precio >= 0),\r\n    creado_en    TIMESTAMPTZ
+    NOT NULL DEFAULT now()\r\n);\r\n"
+  clientes.sql: "CREATE TABLE IF NOT EXISTS clientes (\r\n    id        SERIAL PRIMARY
+    KEY,\r\n    carne     VARCHAR(20) NOT NULL UNIQUE,\r\n    nombre    VARCHAR(160)
+    NOT NULL,\r\n    correo    VARCHAR(160),\r\n    creado_en TIMESTAMPTZ NOT NULL
+    DEFAULT now()\r\n);"
+  inventario.sql: "CREATE TABLE IF NOT EXISTS existencias (\r\n    id             SERIAL
+    PRIMARY KEY,\r\n    sku            VARCHAR(40) NOT NULL UNIQUE,\r\n    nombre
+    \        VARCHAR(160) NOT NULL,\r\n    categoria      VARCHAR(80),\r\n    precio
+    \        NUMERIC(12,2) NOT NULL CHECK (precio >= 0),\r\n    stock          INTEGER
+    NOT NULL CHECK (stock >= 0),\r\n    stock_minimo   INTEGER NOT NULL DEFAULT 5
+    CHECK (stock_minimo >= 0),\r\n    actualizado_en TIMESTAMPTZ NOT NULL DEFAULT
+    now()\r\n);"
+  pedidos.sql: "CREATE TABLE IF NOT EXISTS pedidos (\r\n    id        SERIAL PRIMARY
+    KEY,\r\n    carne     VARCHAR(20) NOT NULL,\r\n    estado    VARCHAR(20) NOT NULL
+    DEFAULT 'confirmado'\r\n              CHECK (estado IN ('confirmado', 'rechazado',
+    'anulado')),\r\n    total     NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (total >=
+    0),\r\n    creado_en TIMESTAMPTZ NOT NULL DEFAULT now()\r\n);\r\n\r\nCREATE TABLE
+    IF NOT EXISTS pedido_lineas (\r\n    id              SERIAL PRIMARY KEY,\r\n    pedido_id
+    \      INTEGER NOT NULL\r\n                    REFERENCES pedidos(id) ON DELETE
+    CASCADE,\r\n    sku             VARCHAR(40) NOT NULL,\r\n    cantidad        INTEGER
+    NOT NULL CHECK (cantidad > 0),\r\n    precio_unitario NUMERIC(12,2) NOT NULL CHECK
+    (precio_unitario >= 0)\r\n);\r\n\r\nCREATE INDEX IF NOT EXISTS idx_pedidos_creado_en\r\n
+    \   ON pedidos(creado_en);\r\n\r\nCREATE INDEX IF NOT EXISTS idx_pedido_lineas_pedido\r\n
+    \   ON pedido_lineas(pedido_id);"
+  reportes.sql: "CREATE TABLE IF NOT EXISTS reportes_generados (\r\n    id          SERIAL
+    PRIMARY KEY,\r\n    tipo        VARCHAR(60) NOT NULL,\r\n    parametros  JSONB
+    NOT NULL DEFAULT '{}'::jsonb,\r\n    resultado   JSONB,\r\n    generado_en TIMESTAMPTZ
+    NOT NULL DEFAULT now()\r\n);"
+kind: ConfigMap
+metadata:
+  labels:
+    app: postgres
+    equipo: maximus
+  name: db-schemas
+  namespace: proyecto-2-maximus
+---
+apiVersion: v1
+data:
+  catalogo.sql: "-- ============================================================\r\n--
+    Γö£├╝rea 4 ╬ô├ç├╢ Seed de catΓö£├¡logo (BASE: catalogo_db)\r\n-- ============================================================\r\n\r\nINSERT
+    INTO categorias (nombre, descripcion) VALUES\r\n    ('Bebidas',   'CafΓö£ΓîÉ y bebidas
+    tΓö£┬ípicas de Guatemala'),\r\n    ('Textiles',  'Tejidos y bordados artesanales'),\r\n
+    \   ('ArtesanΓö£┬ía', 'Piezas talladas y cerΓö£├¡mica'),\r\n    ('Alimentos', 'Dulces
+    tΓö£┬ípicos y productos comestibles')\r\nON CONFLICT (nombre) DO UPDATE\r\n    SET
+    descripcion = EXCLUDED.descripcion;\r\n"
+  clientes.sql: "-- ============================================================\r\n--
+    Γö£├╝rea 4 ╬ô├ç├╢ Seed de integrantes del grupo (BASE: clientes_db)\r\n-- EVIDENCIA
+    OBLIGATORIA: los carnΓö£ΓîÉs deben quedar sembrados en la\r\n-- BD y verse luego en
+    la UI y en los pedidos.\r\n-- Idempotente gracias a ON CONFLICT.\r\n-- ============================================================\r\n\r\nINSERT
+    INTO clientes (carne, nombre, correo) VALUES\r\n    ('1200022', 'Daniel', 'jdpazo@correo.url.edu.gt'),\r\n
+    \   ('1230222', 'Giancarlo', 'gortega@correo.url.edu.gt'),\r\n    ('1177523',
+    'George', 'Jfmunozp@correo.url.edu.gt'),\r\n    ('1248823', 'Julio', 'jjroblesg@correo.url.edu.gt'),\r\n
+    \   ('1078123', 'Sofia', 'asasturiast@correo.url.edu.gt'),\r\n    ('1067423',
+    'Lucia', 'alchavezp@correo.url.edu.gt')\r\nON CONFLICT (carne) DO UPDATE\r\n    SET
+    nombre = EXCLUDED.nombre,\r\n        correo = EXCLUDED.correo;\r\n"
+  inventario.sql: "-- ============================================================\r\n--
+    Γö£├╝rea 4 ╬ô├ç├╢ Seed de productos (BASE: inventario_db)\r\n-- Datos iniciales para
+    poder demostrar el flujo de pedido\r\n-- y la alerta de stock bajo en el dashboard.\r\n--
+    ============================================================\r\n\r\nINSERT INTO
+    existencias (sku, nombre, categoria, precio, stock, stock_minimo) VALUES\r\n    ('CAF-001',
+    'CafΓö£ΓîÉ en grano Antigua 1 lb',   'Bebidas',    75.00, 40,  10),\r\n    ('CAF-002',
+    'CafΓö£ΓîÉ molido CobΓö£├¡n 1 lb',       'Bebidas',    68.50, 25,  10),\r\n    ('TEX-001',
+    'GΓö£Γò¥ipil bordado artesanal',     'Textiles',  450.00,  8,   3),\r\n    ('TEX-002',
+    'Faja tΓö£┬ípica de SololΓö£├¡',        'Textiles',  180.00, 15,   5),\r\n    ('ART-001',
+    'MΓö£├¡scara de madera tallada',    'ArtesanΓö£┬ía', 320.00,  4,   5),\r\n    ('ART-002',
+    'CerΓö£├¡mica de Chinautla',        'ArtesanΓö£┬ía', 210.00, 12,   5),\r\n    ('DUL-001',
+    'Dulces tΓö£┬ípicos surtidos',      'Alimentos',  45.00, 60,  15),\r\n    ('DUL-002',
+    'Chocolate artesanal 200 g',    'Alimentos',  55.00,  3,  10)\r\nON CONFLICT (sku)
+    DO UPDATE\r\n    SET nombre       = EXCLUDED.nombre,\r\n        categoria    =
+    EXCLUDED.categoria,\r\n        precio       = EXCLUDED.precio,\r\n        stock_minimo
+    = EXCLUDED.stock_minimo;\r\n"
+kind: ConfigMap
+metadata:
+  labels:
+    app: postgres
+    equipo: maximus
+  name: db-seeds
+  namespace: proyecto-2-maximus
