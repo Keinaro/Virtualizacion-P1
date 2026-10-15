@@ -11,13 +11,14 @@ Virtualización — Ingeniería en Informática y Sistemas, Universidad Rafael L
 > `proyecto_2_maximus` (carpeta y repositorio) se escribe `proyecto-2-maximus`
 > como namespace.
 >
-> El Proyecto 2 continúa en este mismo repositorio (`Keinaro/Virtualizacion-P1`)
-> y se clona en la carpeta `proyecto_2_maximus`.
+> Repositorio: `Keinaro/proyecto_2_maximus`. Es el mismo repositorio del
+> Proyecto 1 (antes `Virtualizacion-P1`), renombrado; GitHub redirige el
+> nombre anterior.
 
 ## Cómo ejecutar (dentro de la VM)
 
 ```bash
-git clone https://github.com/Keinaro/Virtualizacion-P1.git proyecto_2_maximus && cd proyecto_2_maximus
+git clone https://github.com/Keinaro/proyecto_2_maximus.git && cd proyecto_2_maximus
 cp .env.example .env && nano .env        # contraseñas reales; .env no se versiona
 ./scripts/crear-secret.sh .env           # crea el Secret db-credentials en el clúster
 ./scripts/deploy.sh                      # aplica todo en orden y espera cada capa
