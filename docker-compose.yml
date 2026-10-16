@@ -85,6 +85,9 @@ services:
       DB_PASSWORD: ${INVENTARIO_DB_PASSWORD}
       DB_NAME: ${INVENTARIO_DB}
       PORT: 5000
+      # Al eliminar un producto, inventario consulta a pedidos si hay pedidos activos con ese SKU.
+      # Sin depends_on: pedidos ya depende de inventario y seria un ciclo; la llamada es en tiempo de ejecucion.
+      PEDIDOS_URL: http://pedidos:5000
     depends_on:
       db:
         condition: service_healthy
@@ -109,6 +112,8 @@ services:
       DB_PASSWORD: ${CLIENTES_DB_PASSWORD}
       DB_NAME: ${CLIENTES_DB}
       PORT: 5000
+      # Al eliminar un cliente, consulta a pedidos si tiene pedidos activos (sin depends_on: evitaria un ciclo).
+      PEDIDOS_URL: http://pedidos:5000
     depends_on:
       db:
         condition: service_healthy
