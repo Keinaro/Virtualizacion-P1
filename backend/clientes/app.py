@@ -1,5 +1,7 @@
 import os
+from urllib.parse import quote
 
+import requests
 from flask import Flask, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +35,13 @@ def validar_cliente(data: dict, parcial: bool = False) -> dict:
     if "correo" in resultado and resultado["correo"] is not None and not isinstance(resultado["correo"], str):
         raise ValueError("correo debe ser texto o null")
     return resultado
+
+
+def pedidos_activos(carne: str) -> list[int]:
+    url = os.getenv("PEDIDOS_URL", "http://pedidos:5000").rstrip("/") + f"/clientes/{quote(carne, safe='')}/pedidos-activos"
+    response = requests.get(url, timeout=5)
+    response.raise_for_status()
+    return response.json()["pedidos"]
 
 
 def crear_app() -> Flask:
@@ -95,6 +104,16 @@ def crear_app() -> Flask:
             cliente = session.scalar(select(Cliente).where(Cliente.carne == carne))
             if cliente is None:
                 return jsonify({"error": "Cliente no encontrado"}), 404
+            try:
+                pedidos = pedidos_activos(carne)
+            except (requests.RequestException, ValueError, KeyError):
+                # Sin respuesta de pedidos no se puede garantizar que el cliente este libre.
+                return jsonify({"error": "No fue posible verificar los pedidos del cliente; intente de nuevo"}), 503
+            if pedidos:
+                return jsonify({
+                    "error": f"No se puede eliminar {carne}: tiene {len(pedidos)} pedido(s) activo(s)",
+                    "pedidos": pedidos,
+                }), 409
             session.delete(cliente)
         return "", 204
 

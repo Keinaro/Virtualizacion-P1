@@ -1,6 +1,8 @@
 import os
 from decimal import Decimal, InvalidOperation
+from urllib.parse import quote
 
+import requests
 from flask import Flask, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -47,6 +49,13 @@ def validar_producto(data: dict, parcial: bool = False) -> dict:
         if resultado["precio"] < 0:
             raise ValueError("precio debe ser no negativo")
     return resultado
+
+
+def pedidos_activos(sku: str) -> list[int]:
+    url = os.getenv("PEDIDOS_URL", "http://pedidos:5000").rstrip("/") + f"/productos/{quote(sku, safe='')}/pedidos-activos"
+    response = requests.get(url, timeout=5)
+    response.raise_for_status()
+    return response.json()["pedidos"]
 
 
 def crear_app() -> Flask:
@@ -99,9 +108,20 @@ def crear_app() -> Flask:
     @app.delete("/productos/<string:sku>")
     def eliminar_producto(sku: str):
         with SessionLocal.begin() as session:
-            producto = session.scalar(select(Existencia).where(Existencia.sku == sku))
+            # FOR UPDATE: una reserva concurrente del mismo SKU espera a que termine el borrado.
+            producto = session.scalar(select(Existencia).where(Existencia.sku == sku).with_for_update())
             if producto is None:
                 return jsonify({"error": "Producto no encontrado"}), 404
+            try:
+                pedidos = pedidos_activos(sku)
+            except (requests.RequestException, ValueError, KeyError):
+                # Sin respuesta de pedidos no se puede garantizar que el producto este libre.
+                return jsonify({"error": "No fue posible verificar los pedidos del producto; intente de nuevo"}), 503
+            if pedidos:
+                return jsonify({
+                    "error": f"No se puede eliminar {sku}: tiene {len(pedidos)} pedido(s) activo(s)",
+                    "pedidos": pedidos,
+                }), 409
             session.delete(producto)
         return "", 204
 

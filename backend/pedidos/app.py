@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 import requests
 from flask import Flask, jsonify, request
+from sqlalchemy import select
 
 from database import SessionLocal, crear_tablas
 from models import Pedido, PedidoLinea
@@ -102,6 +103,31 @@ def crear_app() -> Flask:
         with SessionLocal() as session:
             pedidos = session.query(Pedido).order_by(Pedido.creado_en.desc(), Pedido.id.desc()).all()
             return jsonify([pedido_json(pedido) for pedido in pedidos])
+
+    @app.get("/productos/<string:sku>/pedidos-activos")
+    def pedidos_activos_por_sku(sku: str):
+        # Inventario consulta esto antes de eliminar un producto: un pedido
+        # "confirmado" con una linea de ese SKU impide borrarlo.
+        with SessionLocal() as session:
+            ids = session.scalars(
+                select(Pedido.id)
+                .join(Pedido.lineas)
+                .where(PedidoLinea.sku == sku, Pedido.estado == "confirmado")
+                .distinct()
+                .order_by(Pedido.id)
+            ).all()
+            return jsonify({"sku": sku, "pedidos_activos": len(ids), "pedidos": list(ids)})
+
+    @app.get("/clientes/<string:carne>/pedidos-activos")
+    def pedidos_activos_por_carne(carne: str):
+        # Clientes consulta esto antes de eliminar un cliente.
+        with SessionLocal() as session:
+            ids = session.scalars(
+                select(Pedido.id)
+                .where(Pedido.carne == carne, Pedido.estado == "confirmado")
+                .order_by(Pedido.id)
+            ).all()
+            return jsonify({"carne": carne, "pedidos_activos": len(ids), "pedidos": list(ids)})
 
     @app.post("/pedidos")
     def crear_pedido():

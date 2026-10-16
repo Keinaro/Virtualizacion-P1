@@ -235,6 +235,10 @@ async function eliminarProducto (producto) {
   } catch (e) {
     if (e.status === 404) {
       error.value = 'El producto que intenta eliminar ya no existe.'
+    } else if (e.status === 409) {
+      error.value = `No se puede eliminar ${producto.sku}: está en pedidos activos.`
+    } else if (e.status === 503) {
+      error.value = 'No se pudo verificar si el producto tiene pedidos activos. Intente de nuevo.'
     } else {
       error.value = `No se pudo eliminar el producto: ${e.message}`
     }
